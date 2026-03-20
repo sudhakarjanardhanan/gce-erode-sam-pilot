@@ -31,6 +31,13 @@ export default function RegisterLandingPage() {
         <p className="mt-2 text-sm text-slate-600">
           Choose your profile type to submit a registration request. Requests stay pending until reviewed.
         </p>
+        <p className="mt-2 text-sm text-slate-500">
+          Admin reviewers can process requests in the{" "}
+          <Link href="/admin/registrations" className="font-medium text-slate-800 underline">
+            review console
+          </Link>
+          .
+        </p>
 
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           {roles.map((role) => (

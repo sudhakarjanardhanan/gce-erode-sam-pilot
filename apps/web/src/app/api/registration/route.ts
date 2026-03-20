@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { UserRole } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { requireReviewer } from "@/lib/auth/reviewerAuth";
 
 const allowedRoles = new Set(["STUDENT", "FACULTY", "HOD", "ALUMNI"]);
 
@@ -81,15 +83,25 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const reviewerAuth = await requireReviewer(request, ["ADMIN", "HOD"]);
+  if (!reviewerAuth.ok) {
+    return reviewerAuth.response;
+  }
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status")?.toUpperCase();
   const role = searchParams.get("role")?.toUpperCase();
+
+  const roleFilter: UserRole | undefined =
+    role === "ADMIN" || role === "HOD" || role === "FACULTY" || role === "VIEWER" || role === "ALUMNI"
+      ? role
+      : undefined;
 
   try {
     const requests = await db.registrationRequest.findMany({
       where: {
         status: status === "PENDING" || status === "APPROVED" || status === "REJECTED" ? status : undefined,
-        role: role === "VIEWER" || role === "FACULTY" || role === "HOD" || role === "ALUMNI" ? role : undefined,
+        role: roleFilter,
       },
       orderBy: { submittedAt: "desc" },
       take: 100,
@@ -100,6 +112,8 @@ export async function GET(request: Request) {
         email: true,
         status: true,
         submittedAt: true,
+        reviewerNotes: true,
+        reviewedAt: true,
       },
     });
 
