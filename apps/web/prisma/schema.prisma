@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  HOD
+  FACULTY
+  VIEWER
+}
+
+enum CycleStatus {
+  DRAFT
+  ACTIVE
+  LOCKED
+  COMPLETED
+}
+
+enum SessionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  LOCKED
+}
+
+enum GradeStatus {
+  DRAFT
+  FINALIZED
+}
+
+enum ReportStatus {
+  GENERATED
+  PUBLISHED
+}
+
+enum SessionRole {
+  PRESENTER
+  TECHNICAL_REVIEWER
+  FEEDBACK_STRATEGIST
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  name            String
+  passwordHash    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  roleAssignments RoleAssignment[]
+  auditLogs       AuditLog[]       @relation("AuditActor")
+}
+
+model RoleAssignment {
+  id           String   @id @default(cuid())
+  userId       String
+  role         UserRole
+  departmentId String?
+  createdAt    DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([departmentId])
+}
+
+model Department {
+  id              String           @id
+  name            String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  faculty         Faculty[]
+  batches         Batch[]
+  courses         Course[]
+  roleAssignments RoleAssignment[]
+  rubricOverrides RubricOverride[]
+}
+
+model Faculty {
+  id           String   @id @default(cuid())
+  staffCode    String   @unique
+  name         String
+  email        String?
+  departmentId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department   Department    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  sessionPlans SessionPlan[]
+
+  @@index([departmentId])
+}
+
+model Batch {
+  id           String   @id @default(cuid())
+  label        String
+  year         Int
+  semester     Int
+  regulation   String
+  departmentId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department   Department    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  students     Student[]
+  sessionPlans SessionPlan[]
+
+  @@unique([departmentId, year, semester, regulation, label])
+  @@index([departmentId])
+}
+
+model Student {
+  id         String   @id @default(cuid())
+  rollNumber String   @unique
+  name       String
+  email      String?
+  batchId    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  batch        Batch         @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  gradeRecords GradeRecord[]
+
+  @@index([batchId])
+}
+
+model Course {
+  id           String   @id @default(cuid())
+  code         String
+  name         String
+  credits      Int
+  semester     Int
+  regulation   String
+  departmentId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department      Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  sessionPlans    SessionPlan[]
+  rubricOverrides RubricOverride[]
+
+  @@unique([departmentId, regulation, semester, code])
+  @@index([departmentId])
+}
+
+model AcademicCycle {
+  id            String      @id @default(cuid())
+  name          String
+  academicYear  String
+  semesterLabel String
+  startDate     DateTime
+  endDate       DateTime
+  status        CycleStatus @default(DRAFT)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  sessionPlans    SessionPlan[]
+  reportSnapshots ReportSnapshot[]
+
+  @@index([status])
+}
+
+model SessionPlan {
+  id           String        @id @default(cuid())
+  cycleId      String
+  batchId      String
+  courseId     String
+  facultyId    String
+  blockIndex   Int
+  sessionIndex Int
+  date         DateTime?
+  status       SessionStatus @default(PLANNED)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  cycle        AcademicCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  batch        Batch         @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  faculty      Faculty       @relation(fields: [facultyId], references: [id], onDelete: Restrict)
+  gradeRecords GradeRecord[]
+
+  @@unique([cycleId, batchId, courseId, blockIndex, sessionIndex])
+  @@index([cycleId, status])
+}
+
+model Rubric {
+  id         String      @id @default(cuid())
+  role       SessionRole
+  name       String
+  version    Int         @default(1)
+  dimensions Json
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  overrides RubricOverride[]
+
+  @@index([role, isActive])
+}
+
+model RubricOverride {
+  id           String   @id @default(cuid())
+  rubricId     String
+  departmentId String?
+  courseId     String?
+  dimensions   Json
+  reason       String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  rubric     Rubric      @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  course     Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([rubricId])
+}
+
+model GradeRecord {
+  id              String      @id @default(cuid())
+  sessionPlanId   String
+  studentId       String
+  role            SessionRole
+  dimensionScores Json
+  totalScore      Int
+  maxScore        Int
+  status          GradeStatus @default(DRAFT)
+  gradedBy        String?
+  gradedAt        DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  sessionPlan SessionPlan @relation(fields: [sessionPlanId], references: [id], onDelete: Cascade)
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionPlanId, studentId, role])
+  @@index([sessionPlanId, status])
+  @@index([studentId])
+}
+
+model ReportSnapshot {
+  id          String       @id @default(cuid())
+  cycleId     String
+  studentId   String?
+  status      ReportStatus @default(GENERATED)
+  payload     Json
+  generatedAt DateTime     @default(now())
+  publishedAt DateTime?
+  createdById String?
+
+  cycle AcademicCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+
+  @@index([cycleId, status])
+  @@index([studentId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  beforeState Json?
+  afterState  Json?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
