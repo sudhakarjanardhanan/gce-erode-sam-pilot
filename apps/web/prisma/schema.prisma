@@ -11,6 +11,7 @@ enum UserRole {
   HOD
   FACULTY
   VIEWER
+  ALUMNI
 }
 
 enum CycleStatus {
@@ -76,8 +77,32 @@ model Department {
   faculty         Faculty[]
   batches         Batch[]
   courses         Course[]
+  alumniMentors   AlumniMentor[]
   roleAssignments RoleAssignment[]
   rubricOverrides RubricOverride[]
+}
+
+model AlumniMentor {
+  id             String   @id @default(cuid())
+  fullName       String
+  graduationYear Int
+  branch         String
+  organization   String?
+  roleTitle      String?
+  expertise      String[]
+  profileSummary String?
+  email          String?
+  linkedInUrl    String?
+  isActive       Boolean  @default(true)
+  departmentId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([departmentId])
+  @@index([isActive])
+  @@index([graduationYear])
 }
 
 model Faculty {

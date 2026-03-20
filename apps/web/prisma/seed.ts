@@ -173,6 +173,48 @@ async function main() {
     dimensions: normalizeRubricDims(rubrics[key]),
   }));
 
+  const alumniMentors = [
+    {
+      fullName: "Arun Prakash",
+      graduationYear: 2019,
+      branch: "Computer Science Engineering",
+      organization: "Zoho Corporation",
+      roleTitle: "Senior Software Engineer",
+      expertise: ["Backend Systems", "System Design", "Career Mentoring"],
+      profileSummary: "Supports students in building software engineering fundamentals and interview readiness.",
+      email: null,
+      linkedInUrl: null,
+      isActive: true,
+      departmentId: "CSE",
+    },
+    {
+      fullName: "Nivetha R",
+      graduationYear: 2020,
+      branch: "Electronics & Communication Engineering",
+      organization: "Texas Instruments",
+      roleTitle: "Embedded Engineer",
+      expertise: ["Embedded C", "Microcontrollers", "Product Development"],
+      profileSummary: "Mentors on embedded systems projects and practical hardware-software integration.",
+      email: null,
+      linkedInUrl: null,
+      isActive: true,
+      departmentId: "ECE",
+    },
+    {
+      fullName: "Karthik S",
+      graduationYear: 2018,
+      branch: "Mechanical Engineering",
+      organization: "Ashok Leyland",
+      roleTitle: "Design Engineer",
+      expertise: ["CAD", "Manufacturing", "Project Reviews"],
+      profileSummary: "Guides students in applying design and manufacturing concepts to capstone projects.",
+      email: null,
+      linkedInUrl: null,
+      isActive: true,
+      departmentId: "MCE",
+    },
+  ];
+
   if (dryRun) {
     console.log("[seed:dry-run] Parsed constants from:", refFile);
     console.log("[seed:dry-run] Departments:", departments.length);
@@ -239,6 +281,27 @@ async function main() {
     }
   }
 
+  for (const mentor of alumniMentors) {
+    const existing = await prismaClient.alumniMentor.findFirst({
+      where: {
+        fullName: mentor.fullName,
+        graduationYear: mentor.graduationYear,
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prismaClient.alumniMentor.update({
+        where: { id: existing.id },
+        data: mentor,
+      });
+    } else {
+      await prismaClient.alumniMentor.create({
+        data: mentor,
+      });
+    }
+  }
+
   const cycleCount = await prismaClient.academicCycle.count();
   if (cycleCount === 0) {
     await prismaClient.academicCycle.create({
@@ -256,6 +319,7 @@ async function main() {
   console.log("[seed] Departments upserted:", departments.length);
   console.log("[seed] Courses upserted:", courses.length);
   console.log("[seed] Rubrics upserted:", rubricEntries.length);
+  console.log("[seed] Alumni mentors upserted:", alumniMentors.length);
 }
 
 main()
