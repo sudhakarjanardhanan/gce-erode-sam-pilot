@@ -1,6 +1,6 @@
 # GCE Erode — SAM Pilot
 
-Student Assessment and Mentoring (SAM) platform rebuild for GCE Erode.  
+Student Assignment Model (SAM) platform rebuild for GCE Erode.  
 Built with **Next.js 16 + PostgreSQL + Prisma 7 + Tailwind CSS**.
 
 ---

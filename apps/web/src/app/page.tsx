@@ -40,7 +40,7 @@ export default function HomePage() {
           <h1 className="text-xl font-bold tracking-tight text-slate-900">
             GCE Erode — SAM
           </h1>
-          <span className="text-sm text-slate-500">Student Assessment &amp; Mentoring</span>
+          <span className="text-sm text-slate-500">Student Assignment Model</span>
         </div>
       </header>
 
@@ -52,7 +52,7 @@ export default function HomePage() {
             Welcome to the SAM Platform
           </h2>
           <p className="mt-4 max-w-2xl text-lg text-slate-600">
-            A unified platform for managing student academic progress, session-based assessments,
+            A unified platform for managing student assignments, session-based assessments,
             faculty reviews, and alumni mentoring at GCE Erode.
           </p>
         </div>
