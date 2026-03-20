@@ -10,11 +10,15 @@
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:format": "prisma format --schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
-    "prisma:studio": "prisma studio --schema prisma/schema.prisma"
+    "prisma:studio": "prisma studio --schema prisma/schema.prisma",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:dry": "tsx prisma/seed.ts --dry-run"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "next": "16.2.0",
+    "pg": "^8.20.0",
     "prisma": "^7.5.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
@@ -22,11 +26,13 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.18.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
