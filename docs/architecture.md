@@ -6,8 +6,22 @@
 - Prisma ORM
 - Tailwind CSS
 
+## Primary User Groups
+- Faculty
+- Head of Department (HoD)
+- Principal / Admin
+- Students (born approximately 2004-2009 in current cohorts)
+- Alumni (new role for mentor directory and future mentoring workflows)
+
 ## Core Goal
 Rebuild the SAM legacy single-file web app into a modular, maintainable platform while preserving behavior parity.
+
+## UX and Interaction Direction
+- Highly professional look and feel suitable for engineering college operations.
+- Role-first, intuitive screens with reduced click depth for common workflows.
+- Desktop-first optimization for Faculty, HoD, and Principal operational tasks.
+- Mobile-friendly student views for assignment visibility and grade report viewing.
+- Use the legacy reference HTML only as functional behavior source; visual style does not need parity.
 
 ## Key Workflow Rule
 Report generation is the final step and is enabled only after all sessions in a cycle are completed.
@@ -29,7 +43,27 @@ Report generation is the final step and is enabled only after all sessions in a 
 - /grades/[sessionId]
 - /reports
 - /reports/[cycleId]
+- /mentors
+- /mentors/alumni
 - /admin
+
+## Role Matrix (Current and Planned)
+- Admin: full institution configuration, cycle governance, report publishing, high-risk operations.
+- Principal: institution-wide dashboards and cross-department reporting.
+- HoD: department-level monitoring, faculty/batch/course oversight, report readiness tracking.
+- Faculty: operational workflows (teams, schedule, grading, report generation where allowed).
+- Student: read-focused access to assignments and personal reports, mobile-priority consumption.
+- Alumni (planned): mentor profile visibility and future mentor engagement workflows.
+
+## Navigation and Click Efficiency Rules
+- Role-based default landing after login:
+	- Admin/Principal -> institution dashboard
+	- HoD -> department dashboard
+	- Faculty -> active cycle workbench
+	- Student -> my assignments and my reports
+	- Alumni -> mentor profile and mentor directory context
+- Keep critical operations within 1-2 transitions from landing page.
+- Avoid deep nested navigation for daily faculty tasks.
 
 ## Report Gate Predicate
 For cycle C:
@@ -49,6 +83,7 @@ If predicate fails, report route must show blocked state with:
 - Department
 - Faculty
 - Batch
+- AlumniMentor
 - Course
 - Rubric
 - RubricOverride
@@ -73,6 +108,13 @@ If predicate fails, report route must show blocked state with:
 - POST /api/reports/[cycleId]/generate
 - GET /api/export/[cycleId]/csv
 - GET /api/export/[cycleId]/json
+- GET /api/mentors/alumni
+- GET /api/mentors/alumni/[mentorId]
+
+## Mentor Directory Requirement (New)
+- Students and Faculty must be able to view the alumni mentor list.
+- Mentor list is read-first in initial phase (search/filter/profile view).
+- Include this in Phase 1.5 even if mentor interaction features are deferred.
 
 ## Invariants
 - Report generation endpoint rejects if cycle completion predicate fails.

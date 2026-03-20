@@ -67,11 +67,22 @@ Rules:
 - Student login access: planned
 - Language: English only
 
+Additional access requirements:
+- Faculty/HoD/Principal usage is desktop-first.
+- Student report viewing must be mobile-friendly and readable without horizontal scrolling for key summaries.
+- Role-aware entry points should minimize clicks for each profile.
+
+## 7.1 Primary User Audience
+- Operational users: Faculty, HoD, Principal/Admin
+- Consumer users: Students
+- Adjacent role: Alumni (mentor directory visibility context; report authoring not in current scope)
+
 ## 8. Open Items
 - True multi-page PDF layout not implemented yet
 - Faculty override UI and AI learning loop pending
 - Cross-cycle comparison pending Cycle 2 data
 - Full role narrative and next-cycle prompt generation pending
+- Integration of alumni mentor directory links and cross-role discoverability is not yet implemented
 
 ## 9. Pilot Acceptance
 - Contribution-first narrative framing throughout
