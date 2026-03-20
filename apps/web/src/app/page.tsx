@@ -34,16 +34,6 @@ const sections = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="border-b border-slate-200 bg-white px-6 py-5">
-        <div className="mx-auto flex max-w-6xl items-baseline gap-3">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            GCE Erode — SAM
-          </h1>
-          <span className="text-sm text-slate-500">Student Assignment Model</span>
-        </div>
-      </header>
-
       {/* Hero */}
       <section className="border-b border-slate-200 bg-white px-6 py-14">
         <div className="mx-auto max-w-6xl">

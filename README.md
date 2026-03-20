@@ -1,5 +1,7 @@
 # GCE Erode — SAM Pilot
 
+![CI](https://github.com/sudhakarjanardhanan/gce-erode-sam-pilot/actions/workflows/ci.yml/badge.svg)
+
 Student Assignment Model (SAM) platform rebuild for GCE Erode.  
 Built with **Next.js 16 + PostgreSQL + Prisma 7 + Tailwind CSS**.
 
@@ -69,6 +71,11 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sam_dev?schema=publi
 
 # Required — Admin review API token (set a strong random value in production)
 REVIEW_API_TOKEN="replace-with-strong-random-token"
+
+# Required — NextAuth session signing key
+# Generate with: openssl rand -base64 32
+NEXTAUTH_SECRET="replace-with-strong-random-secret"
+NEXTAUTH_URL="http://localhost:3000"
 ```
 
 ---
@@ -110,6 +117,23 @@ Expected dry-run output: **8 departments · 235 courses · 3 rubrics**.
 
 ---
 
+## 5b — Bootstrap the first admin user
+
+Run once after migrations and seed to create the initial admin account:
+
+```bash
+# Set these in apps/web/.env first:
+#   ADMIN_EMAIL=admin@gceerode.ac.in
+#   ADMIN_PASSWORD=YourStrongPassword123
+#   ADMIN_NAME=SAM Admin
+
+npm run db:bootstrap-admin
+```
+
+Then sign in at **http://localhost:3000/login** with those credentials.
+
+---
+
 ## 6 — Start the development server
 
 ```bash
@@ -126,6 +150,7 @@ Open **http://localhost:3000** in your browser.
 | Path | Description | Who can access |
 |---|---|---|
 | `/` | Home / landing stub | Everyone |
+| `/login` | Credentials login page | Public |
 | `/register` | Registration profile selector | Public (anyone registering) |
 | `/register/student` | Student registration form | Students |
 | `/register/faculty` | Faculty registration form | Faculty |
@@ -147,6 +172,7 @@ Open **http://localhost:3000** in your browser.
 | `POST` | `/api/registration` | None | Submit a registration request |
 | `GET` | `/api/registration` | Reviewer token + role | List registration requests (filterable) |
 | `PATCH` | `/api/registration/[id]/review` | Admin token + role | Approve or reject a request |
+| `GET/POST` | `/api/auth/[...nextauth]` | NextAuth internal | Credentials auth/session handlers |
 | `GET` | `/api/mentors/alumni` | None | List alumni mentors (search + pagination) |
 | `GET` | `/api/mentors/alumni/[id]` | None | Single alumni mentor profile |
 | `GET` | `/api/reports/[cycleId]/gate` | None | Check if a cycle is ready for reports |
@@ -166,6 +192,22 @@ The admin review console at `/admin/registrations` provides a UI for this — it
 
 ---
 
+## CI/CD recommendation
+
+Yes, CI/CD should be in place to keep the repository healthy.
+
+- CI is now enabled via GitHub Actions at `.github/workflows/ci.yml`.
+- On every push and PR to `main`, it runs: install, Prisma client generation, lint, and production build.
+- This catches integration issues early and prevents regressions from silently reaching `main`.
+
+To make the repo "always working", also enable branch protection on GitHub:
+
+1. Require PRs for `main`.
+2. Require CI status checks to pass before merge.
+3. Block force-push and direct pushes to `main`.
+
+---
+
 ## npm scripts (apps/web)
 
 | Script | Description |
@@ -180,6 +222,7 @@ The admin review console at `/admin/registrations` provides a UI for this — it
 | `npm run prisma:studio` | Open Prisma Studio DB browser |
 | `npm run db:seed` | Seed departments, courses, rubrics from reference |
 | `npm run db:seed:dry` | Dry run — validate seed counts only |
+| `npm run db:bootstrap-admin` | Create / reset the first ADMIN user |
 
 ---
 

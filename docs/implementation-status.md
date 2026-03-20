@@ -1,6 +1,6 @@
 # SAM Pilot — Implementation Status
 
-Last updated: 2026-03-19  
+Last updated: 2026-03-19 (auth + CI added)
 Branch: `main`
 
 ---
@@ -54,9 +54,11 @@ Branch: `main`
 | Reviewer auth helper (`src/lib/auth/reviewerAuth.ts`) | ✅ | Bearer token + DB-backed role check |
 | `GET /api/registration` protected (Admin/HoD only) | ✅ | |
 | `PATCH /api/registration/[id]/review` protected (Admin only) | ✅ | |
-| Full session-based auth (login / logout / JWT / sessions) | ⬜ | Next step after DB is live |
-| Role-gated nav / middleware route protection | ⬜ | Depends on session auth |
-| Bootstrap script for first admin user | ⬜ | |
+| Full session-based auth (login / logout / JWT / sessions) | ✅ | Auth.js v5 credentials provider, JWT strategy |
+| Login page UI | ✅ | `/login` with callbackUrl support |
+| Session-aware nav bar | ✅ | Shows user name, sign-out, admin link |
+| Role-gated route protection (Next.js proxy) | ✅ | `src/proxy.ts` — protects /admin, /reports, /mentors |
+| Bootstrap script for first admin user | ✅ | `prisma/bootstrap-admin.ts` → `npm run db:bootstrap-admin` |
 
 ---
 
@@ -140,6 +142,7 @@ Branch: `main`
 | `docs/sam-student-progress-report-requirements.md` | ✅ |
 | `docs/syllabus/*.md` — all 8 departments | ✅ |
 | `docs/implementation-status.md` — this file | ✅ |
+| GitHub Actions CI workflow (lint + build on push/PR) | ✅ | `.github/workflows/ci.yml` |
 | Root `README.md` — setup and access guide | ✅ |
 
 ---
@@ -153,8 +156,9 @@ Branch: `main`
 | M3 — Report gate + basic report UI | ✅ Done |
 | M4 — Alumni role + mentor directory | ✅ Done |
 | M5 — Registration intake + admin review flow | ✅ Done |
-| M6 — Session-based auth + middleware route protection | ⬜ Next |
+| M6 — Session-based auth + middleware route protection | ✅ Done |
 | M7 — Academic cycle management UI | ⬜ |
+| CI/CD — Lint + type-check + build on every push | ✅ Done |
 | M8 — Grade entry and finalization UI | ⬜ |
 | M9 — Role-specific dashboards | ⬜ |
 | M10 — PDF report export | ⬜ |
