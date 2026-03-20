@@ -1,65 +1,102 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+const sections = [
+  {
+    title: "Registration",
+    description: "Students, faculty, HoDs and alumni can submit a registration request to join the platform.",
+    href: "/register",
+    label: "Register",
+    accent: "bg-blue-600 hover:bg-blue-700",
+  },
+  {
+    title: "Alumni Mentor Directory",
+    description: "Browse alumni mentors by department, graduation year, and area of expertise.",
+    href: "/mentors/alumni",
+    label: "View Mentors",
+    accent: "bg-teal-600 hover:bg-teal-700",
+  },
+  {
+    title: "Academic Reports",
+    description: "View and generate student progress reports for completed academic cycles.",
+    href: "/reports",
+    label: "View Reports",
+    accent: "bg-violet-600 hover:bg-violet-700",
+  },
+  {
+    title: "Admin — Registration Review",
+    description: "Review and approve or reject pending registration requests. Admin access required.",
+    href: "/admin/registrations",
+    label: "Open Console",
+    accent: "bg-slate-700 hover:bg-slate-800",
+  },
+];
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="border-b border-slate-200 bg-white px-6 py-5">
+        <div className="mx-auto flex max-w-6xl items-baseline gap-3">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            GCE Erode — SAM
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <span className="text-sm text-slate-500">Student Assessment &amp; Mentoring</span>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="border-b border-slate-200 bg-white px-6 py-14">
+        <div className="mx-auto max-w-6xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">Pilot</p>
+          <h2 className="mt-2 text-4xl font-bold text-slate-900">
+            Welcome to the SAM Platform
+          </h2>
+          <p className="mt-4 max-w-2xl text-lg text-slate-600">
+            A unified platform for managing student academic progress, session-based assessments,
+            faculty reviews, and alumni mentoring at GCE Erode.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Navigation cards */}
+      <section className="px-6 py-12">
+        <div className="mx-auto max-w-6xl">
+          <h3 className="mb-6 text-sm font-semibold uppercase tracking-widest text-slate-500">
+            Quick Access
+          </h3>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {sections.map((s) => (
+              <div
+                key={s.href}
+                className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
+                <div>
+                  <h4 className="text-base font-semibold text-slate-900">{s.title}</h4>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.description}</p>
+                </div>
+                <div className="mt-6">
+                  <Link
+                    href={s.href}
+                    className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${s.accent}`}
+                  >
+                    {s.label} →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      {/* Status note */}
+      <section className="px-6 pb-16">
+        <div className="mx-auto max-w-6xl rounded-xl border border-amber-200 bg-amber-50 px-6 py-4 text-sm text-amber-800">
+          <strong>Pilot build:</strong> Database-backed features (reports, mentor list, admin review) require
+          the local PostgreSQL instance to be running. Run{" "}
+          <code className="rounded bg-amber-100 px-1 font-mono">docker compose up -d</code> inside{" "}
+          <code className="rounded bg-amber-100 px-1 font-mono">apps/web/</code> to start it.
+        </div>
+      </section>
+    </main>
   );
 }
