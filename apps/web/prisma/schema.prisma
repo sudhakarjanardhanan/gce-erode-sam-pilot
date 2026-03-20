@@ -44,15 +44,44 @@ enum SessionRole {
   FEEDBACK_STRATEGIST
 }
 
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  name            String
-  passwordHash    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  roleAssignments RoleAssignment[]
-  auditLogs       AuditLog[]       @relation("AuditActor")
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  name                 String
+  passwordHash         String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  roleAssignments      RoleAssignment[]
+  registrationRequests RegistrationRequest[]
+  auditLogs            AuditLog[]            @relation("AuditActor")
+}
+
+model RegistrationRequest {
+  id            String             @id @default(cuid())
+  role          UserRole
+  fullName      String
+  email         String
+  phone         String?
+  departmentId  String?
+  payload       Json
+  status        RegistrationStatus @default(PENDING)
+  submittedAt   DateTime           @default(now())
+  reviewedAt    DateTime?
+  reviewerNotes String?
+  userId        String?
+
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([role, status])
+  @@index([email])
+  @@index([submittedAt])
 }
 
 model RoleAssignment {
@@ -70,16 +99,17 @@ model RoleAssignment {
 }
 
 model Department {
-  id              String           @id
-  name            String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  faculty         Faculty[]
-  batches         Batch[]
-  courses         Course[]
-  alumniMentors   AlumniMentor[]
-  roleAssignments RoleAssignment[]
-  rubricOverrides RubricOverride[]
+  id                   String                @id
+  name                 String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  faculty              Faculty[]
+  batches              Batch[]
+  courses              Course[]
+  alumniMentors        AlumniMentor[]
+  roleAssignments      RoleAssignment[]
+  rubricOverrides      RubricOverride[]
+  registrationRequests RegistrationRequest[]
 }
 
 model AlumniMentor {
