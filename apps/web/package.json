@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -14,7 +14,9 @@
     "prisma:studio": "prisma studio --schema prisma/schema.prisma",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:dry": "tsx prisma/seed.ts --dry-run",
-    "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts"
+    "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "db:import:v738": "tsx prisma/import-v738.ts",
+    "db:import:v738:dry": "tsx prisma/import-v738.ts --dry-run"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
@@ -28,7 +30,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.2.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/pg": "^8.18.0",

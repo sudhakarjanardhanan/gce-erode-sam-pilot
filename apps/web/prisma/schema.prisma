@@ -8,6 +8,7 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  PRINCIPAL
   HOD
   FACULTY
   VIEWER
@@ -48,6 +49,12 @@ enum RegistrationStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum AssignmentStatus {
+  GENERATED
+  PUBLISHED
+  COMPLETED
 }
 
 model User {
@@ -163,6 +170,8 @@ model Batch {
   department   Department    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   students     Student[]
   sessionPlans SessionPlan[]
+  teams        Team[]
+  assignments  Assignment[]
 
   @@unique([departmentId, year, semester, regulation, label])
   @@index([departmentId])
@@ -173,12 +182,15 @@ model Student {
   rollNumber String   @unique
   name       String
   email      String?
+  gender     String?  // 'M' | 'F' | null
   batchId    String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   batch        Batch         @relation(fields: [batchId], references: [id], onDelete: Restrict)
   gradeRecords GradeRecord[]
+  teamMembers  TeamMember[]
+  roleMappings SessionRoleMapping[]
 
   @@index([batchId])
 }
@@ -197,6 +209,8 @@ model Course {
   department      Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   sessionPlans    SessionPlan[]
   rubricOverrides RubricOverride[]
+  teams           Team[]
+  assignments     Assignment[]
 
   @@unique([departmentId, regulation, semester, code])
   @@index([departmentId])
@@ -214,6 +228,8 @@ model AcademicCycle {
   updatedAt     DateTime    @updatedAt
 
   sessionPlans    SessionPlan[]
+  teams           Team[]
+  assignments     Assignment[]
   reportSnapshots ReportSnapshot[]
 
   @@index([status])
@@ -237,9 +253,93 @@ model SessionPlan {
   course       Course        @relation(fields: [courseId], references: [id], onDelete: Restrict)
   faculty      Faculty       @relation(fields: [facultyId], references: [id], onDelete: Restrict)
   gradeRecords GradeRecord[]
+  roleMappings SessionRoleMapping[]
 
   @@unique([cycleId, batchId, courseId, blockIndex, sessionIndex])
   @@index([cycleId, status])
+}
+
+model Team {
+  id           String   @id @default(cuid())
+  cycleId      String
+  batchId      String
+  courseId     String
+  name         String
+  shuffleIndex Int?     // Position in the random pairing order (0-based); set during team generation
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cycle        AcademicCycle  @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  batch        Batch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  course       Course         @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  members      TeamMember[]
+  assignments  Assignment[]
+  roleMappings SessionRoleMapping[]
+
+  @@unique([cycleId, batchId, courseId, name])
+  @@index([cycleId, batchId, courseId])
+}
+
+model TeamMember {
+  id         String   @id @default(cuid())
+  teamId      String
+  studentId   String
+  memberIndex Int
+  createdAt   DateTime @default(now())
+
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, studentId])
+  @@index([studentId])
+}
+
+model Assignment {
+  id                 String           @id @default(cuid())
+  cycleId            String
+  batchId            String
+  courseId            String
+  teamId             String
+  title              String
+  brief              String?
+  assignType         String?          // presentation | mini_project | practical | problem_solve
+  unit               String?          // Syllabus unit used as topic
+  bloomLevel         Int?             // 1-5 Bloom's Taxonomy level
+  learningObjectives String[]         // Array of LO strings
+  sessionSlot        Int?             // Session slot number (null for reserves)
+  isReserve          Boolean          @default(false)
+  approved           Boolean          @default(false)
+  status             AssignmentStatus @default(GENERATED)
+  createdBy          String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  cycle AcademicCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  batch Batch         @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  course Course       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  team  Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, teamId, title])
+  @@index([cycleId, batchId, courseId])
+}
+
+model SessionRoleMapping {
+  id            String      @id @default(cuid())
+  sessionPlanId String
+  teamId        String
+  studentId     String
+  role          SessionRole
+  mappedBy      String?
+  mappedAt      DateTime    @default(now())
+
+  sessionPlan SessionPlan @relation(fields: [sessionPlanId], references: [id], onDelete: Cascade)
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionPlanId, teamId, role])
+  @@index([sessionPlanId])
+  @@index([studentId])
 }
 
 model Rubric {
