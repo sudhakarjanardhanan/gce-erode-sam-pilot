@@ -14,7 +14,9 @@
     "prisma:studio": "prisma studio --schema prisma/schema.prisma",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:dry": "tsx prisma/seed.ts --dry-run",
-    "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts"
+    "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "db:import:v738": "tsx prisma/import-v738.ts",
+    "db:import:v738:dry": "tsx prisma/import-v738.ts --dry-run"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",

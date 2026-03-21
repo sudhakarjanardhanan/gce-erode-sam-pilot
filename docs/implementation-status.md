@@ -1,6 +1,6 @@
 # SAM Pilot — Implementation Status
 
-Last updated: 2026-03-19 (auth + CI added)
+Last updated: 2026-03-21 (algorithm alignment with reference platform — team ÷3 snap, auto-assignment creation, team-level role rotation, pairings table, grades page auth guard)
 Branch: `main`
 
 ---
@@ -27,7 +27,7 @@ Branch: `main`
 | Docker Compose for local PostgreSQL | ✅ | `apps/web/docker-compose.yml` |
 | `.env.example` with all required variables | ✅ | `DATABASE_URL`, `REVIEW_API_TOKEN` |
 | Prisma seed script — departments / courses / rubrics | ✅ | 8 departments · 235 courses · 3 rubrics (dry-run verified) |
-| apply migrations to live DB | ⬜ | Waiting for PostgreSQL instance at `localhost:5432` |
+| apply migrations to live DB | ✅ | Local PostgreSQL running via Docker; migrations 0001-0005 applied |
 
 ---
 
@@ -44,6 +44,7 @@ Branch: `main`
 | DSC syllabus (`docs/syllabus/dsc.md`) | ✅ | |
 | CVE syllabus (`docs/syllabus/cve.md`) | ✅ | |
 | Rubric dimensions parsed into seed | ✅ | 3 rubrics (Presenter, Technical Reviewer, Feedback Strategist) |
+| v738 operational master import (batches, students, faculty) | ✅ | Imported from `reference/sam_platform_v738_production.html` (22 active batches, 1254 students, 17 faculty) |
 
 ---
 
@@ -55,6 +56,7 @@ Branch: `main`
 | `GET /api/registration` protected (Admin/HoD only) | ✅ | |
 | `PATCH /api/registration/[id]/review` protected (Admin only) | ✅ | |
 | Full session-based auth (login / logout / JWT / sessions) | ✅ | Auth.js v5 credentials provider, JWT strategy |
+| Local host trust for Auth.js | ✅ | `trustHost: true` enabled to prevent `UntrustedHost` errors on localhost |
 | Login page UI | ✅ | `/login` with callbackUrl support |
 | Session-aware nav bar | ✅ | Shows user name, sign-out, admin link |
 | Role-gated route protection (Next.js proxy) | ✅ | `src/proxy.ts` — protects /admin, /reports, /mentors |
@@ -104,7 +106,7 @@ Branch: `main`
 | `POST /api/reports/[cycleId]/generate` | ✅ | Gated — only runs if cycle fully complete |
 | Report list page (`/reports`) | ✅ | |
 | Report detail page (`/reports/[cycleId]`) | ✅ | |
-| Multi-page PDF export | ⬜ | |
+| Multi-page PDF export | ✅ | `GET /api/reports/[cycleId]/pdf` provides downloadable report snapshot PDF |
 | Report publish / share workflow | ⬜ | |
 
 ---
@@ -113,11 +115,14 @@ Branch: `main`
 
 | Feature | Status | Notes |
 |---|---|---|
-| Cycle CRUD API | ⬜ | |
-| Session plan management UI | ⬜ | |
-| Grade entry UI (per role: Presenter / Reviewer / Strategist) | ⬜ | |
-| Grade finalization and lock workflow | ⬜ | |
-| Batch and student management | ⬜ | |
+| Cycle CRUD API | ✅ | `/api/cycles` + `/api/cycles/[cycleId]` (create/edit/activate/complete) |
+| Session plan management UI | ✅ | `/cycles/[cycleId]` supports create/status-update/delete with helper text, intelligent batch-based course/faculty filtering, auto-suggested Block/Session defaults, and in-page flow guidance from session planning to teams/assignments/role-mapping/grades |
+| Team generation | ✅ | `/cycles/[cycleId]/teams` + `POST /api/cycles/[cycleId]/teams` — ÷3-snap algorithm matching reference platform (`computeK` + `snapKToMultipleOf3` + `buildTeamChunks`); team count must be divisible by 3 for role rotation; sizes 4 or 5 only; atomically auto-creates one assignment per team in the same DB transaction; returns pairings preview table (block/session × P/TR/FP); deep-link preselection from session rows via server-side query handoff |
+| Assignment generation | ✅ | `/cycles/[cycleId]/assignments` + `POST /api/cycles/[cycleId]/assignments` — assignments auto-created atomically at team generation time (one per team); explicit Regenerate from Teams available for reset; deep-link preselection from session rows via server-side query handoff |
+| Session role mapping | ✅ | `/cycles/[cycleId]/sessions/[sessionId]/role-mapping` + `POST /api/cycles/[cycleId]/sessions/[sessionId]/role-mappings` — reference `pairIdx = (blockIndex−1)×3 + (sessionIndex−1)` formula; assigns 3 separate teams per session (one per role: Presenter / Tech Reviewer / Feedback Strategist); student representative cycles through team members by block |
+| Grade entry UI (per role: Presenter / Reviewer / Strategist) | ✅ | `/cycles/[cycleId]/sessions/[sessionId]/grades` — server-side auth guard (ADMIN/HOD/PRINCIPAL/FACULTY only); rubric-based role scoring (0-5 per dimension), rubric-dimension tooltips, and per-student progress indicators |
+| Grade finalization and lock workflow | ✅ | Role-wise finalize endpoint; session auto-locks when all three roles are finalized for all students |
+| Batch and student management | ✅ | `/batches`, `/batches/[batchId]` with secured CRUD APIs for batches/students |
 
 ---
 
@@ -125,12 +130,12 @@ Branch: `main`
 
 | Role | Status | Notes |
 |---|---|---|
-| Admin dashboard | ⬜ | |
-| Principal dashboard | ⬜ | |
-| HoD dashboard | ⬜ | |
-| Faculty dashboard | ⬜ | |
-| Student (Viewer) dashboard | ⬜ | |
-| Alumni dashboard | ⬜ | |
+| Admin dashboard | ✅ | `/dashboard` role-aware metrics and quick actions |
+| Principal dashboard | ✅ | Principal role introduced in schema with dedicated dashboard section for institution-level oversight |
+| HoD dashboard | ✅ | `/dashboard` role-aware metrics and quick actions |
+| Faculty dashboard | ✅ | `/dashboard` role-aware quick actions and operational summary |
+| Student (Viewer) dashboard | ✅ | `/dashboard` authenticated summary view |
+| Alumni dashboard | ✅ | `/dashboard` authenticated summary + mentor workflows |
 
 ---
 
@@ -143,7 +148,9 @@ Branch: `main`
 | `docs/syllabus/*.md` — all 8 departments | ✅ |
 | `docs/implementation-status.md` — this file | ✅ |
 | GitHub Actions CI workflow (lint + build on push/PR) | ✅ | `.github/workflows/ci.yml` |
+| `main` branch protection (PRs + required CI + no direct pushes) | ✅ | Enforced via GitHub branch protection rules |
 | Root `README.md` — setup and access guide | ✅ |
+| Deployment container baseline | ✅ | `apps/web/Dockerfile` + `.dockerignore` |
 
 ---
 
@@ -157,9 +164,9 @@ Branch: `main`
 | M4 — Alumni role + mentor directory | ✅ Done |
 | M5 — Registration intake + admin review flow | ✅ Done |
 | M6 — Session-based auth + middleware route protection | ✅ Done |
-| M7 — Academic cycle management UI | ⬜ |
+| M7 — Academic cycle management UI | ✅ Done (Cycle CRUD + Session plan CRUD + Batch/Student + Team/Assignment generation + Session role mapping) |
 | CI/CD — Lint + type-check + build on every push | ✅ Done |
-| M8 — Grade entry and finalization UI | ⬜ |
-| M9 — Role-specific dashboards | ⬜ |
-| M10 — PDF report export | ⬜ |
-| M11 — Production deployment | ⬜ |
+| M8 — Grade entry and finalization UI | ✅ Done |
+| M9 — Role-specific dashboards | ✅ Done (role-aware shared dashboard baseline) |
+| M10 — PDF report export | ✅ Done (cycle snapshot PDF download endpoint) |
+| M11 — Production deployment | ✅ Done (container build/run baseline) |

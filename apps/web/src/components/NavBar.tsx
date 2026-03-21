@@ -7,6 +7,7 @@ export function NavBar() {
   const { data: session, status } = useSession();
   const roles: string[] = (session?.user?.roles as string[]) ?? [];
   const isAdmin = roles.includes("ADMIN");
+  const canManageCycles = roles.includes("ADMIN") || roles.includes("HOD") || roles.includes("PRINCIPAL");
 
   return (
     <nav className="border-b border-slate-200 bg-white px-6 py-3">
@@ -17,12 +18,27 @@ export function NavBar() {
         </Link>
 
         <div className="flex items-center gap-4 text-sm">
+          {session && (
+            <Link href="/dashboard" className="text-slate-600 hover:text-slate-900">
+              Dashboard
+            </Link>
+          )}
           <Link href="/mentors/alumni" className="text-slate-600 hover:text-slate-900">
             Mentors
           </Link>
           <Link href="/reports" className="text-slate-600 hover:text-slate-900">
             Reports
           </Link>
+          {canManageCycles && (
+            <Link href="/cycles" className="text-slate-600 hover:text-slate-900">
+              Cycles
+            </Link>
+          )}
+          {canManageCycles && (
+            <Link href="/batches" className="text-slate-600 hover:text-slate-900">
+              Batches
+            </Link>
+          )}
           {isAdmin && (
             <Link href="/admin/registrations" className="text-slate-600 hover:text-slate-900">
               Admin

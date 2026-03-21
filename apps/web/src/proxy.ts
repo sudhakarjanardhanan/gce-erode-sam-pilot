@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ["/admin", "/reports", "/mentors"];
+const PROTECTED_PREFIXES = ["/admin", "/reports", "/mentors", "/cycles", "/batches", "/dashboard"];
 
 // Routes that are only accessible when NOT authenticated
 const AUTH_ONLY_PATHS = ["/login"];
@@ -28,6 +28,23 @@ export default auth((req: any) => {
   if (pathname.startsWith("/admin")) {
     const roles: string[] = (session?.user?.roles as string[]) ?? [];
     if (!roles.includes("ADMIN")) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+  }
+
+  // Admin or HoD routes
+  if (pathname.startsWith("/cycles")) {
+    const roles: string[] = (session?.user?.roles as string[]) ?? [];
+    const canAccess = roles.includes("ADMIN") || roles.includes("HOD") || roles.includes("PRINCIPAL");
+    if (!canAccess) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+  }
+
+  if (pathname.startsWith("/batches")) {
+    const roles: string[] = (session?.user?.roles as string[]) ?? [];
+    const canAccess = roles.includes("ADMIN") || roles.includes("HOD") || roles.includes("PRINCIPAL");
+    if (!canAccess) {
       return NextResponse.redirect(new URL("/", req.url));
     }
   }
