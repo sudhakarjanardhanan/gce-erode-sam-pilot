@@ -1,6 +1,6 @@
 # SAM Pilot — Implementation Status
 
-Last updated: 2026-03-21 (algorithm alignment with reference platform — team ÷3 snap, auto-assignment creation, team-level role rotation, pairings table, grades page auth guard)
+Last updated: 2026-03-21 (gender-balanced random team generation — migration 0006, Fisher-Yates shuffle, 3 gender modes matching reference v738)
 Branch: `main`
 
 ---
@@ -22,8 +22,8 @@ Branch: `main`
 | Repository setup and monorepo layout | ✅ | `apps/web/` houses the Next.js app |
 | Next.js 16 app scaffold (App Router + TypeScript + Tailwind) | ✅ | |
 | Prisma 7 with adapter-pg + pg driver | ✅ | `src/lib/db.ts` singleton |
-| PostgreSQL schema — core SAM models | ✅ | Users, Departments, Batches, Courses, Faculty, Students, Cycles, Sessions, Grades, Reports |
-| Migration artifacts (SQL-based, ready to apply) | ✅ | `prisma/migrations/0001_init`, `0002_alumni_mentor`, `0003_registration_requests` |
+| PostgreSQL schema — core SAM models | ✅ | Users, Departments, Batches, Courses, Faculty, Students (incl. gender), Cycles, Sessions, Grades, Reports |
+| Migration artifacts (SQL-based, ready to apply) | ✅ | `prisma/migrations/0001_init` through `0006_student_gender` |
 | Docker Compose for local PostgreSQL | ✅ | `apps/web/docker-compose.yml` |
 | `.env.example` with all required variables | ✅ | `DATABASE_URL`, `REVIEW_API_TOKEN` |
 | Prisma seed script — departments / courses / rubrics | ✅ | 8 departments · 235 courses · 3 rubrics (dry-run verified) |
@@ -44,7 +44,7 @@ Branch: `main`
 | DSC syllabus (`docs/syllabus/dsc.md`) | ✅ | |
 | CVE syllabus (`docs/syllabus/cve.md`) | ✅ | |
 | Rubric dimensions parsed into seed | ✅ | 3 rubrics (Presenter, Technical Reviewer, Feedback Strategist) |
-| v738 operational master import (batches, students, faculty) | ✅ | Imported from `reference/sam_platform_v738_production.html` (22 active batches, 1254 students, 17 faculty) |
+| v738 operational master import (batches, students, faculty) | ✅ | Imported from `reference/sam_platform_v738_production.html` (22 active batches, 1254 students with gender M/F, 17 faculty) |
 
 ---
 
@@ -117,7 +117,7 @@ Branch: `main`
 |---|---|---|
 | Cycle CRUD API | ✅ | `/api/cycles` + `/api/cycles/[cycleId]` (create/edit/activate/complete) |
 | Session plan management UI | ✅ | `/cycles/[cycleId]` supports create/status-update/delete with helper text, intelligent batch-based course/faculty filtering, auto-suggested Block/Session defaults, and in-page flow guidance from session planning to teams/assignments/role-mapping/grades |
-| Team generation | ✅ | `/cycles/[cycleId]/teams` + `POST /api/cycles/[cycleId]/teams` — ÷3-snap algorithm matching reference platform (`computeK` + `snapKToMultipleOf3` + `buildTeamChunks`); team count must be divisible by 3 for role rotation; sizes 4 or 5 only; atomically auto-creates one assignment per team in the same DB transaction; returns pairings preview table (block/session × P/TR/FP); deep-link preselection from session rows via server-side query handoff |
+| Team generation | ✅ | `/cycles/[cycleId]/teams` + `POST /api/cycles/[cycleId]/teams` — ÷3-snap algorithm matching reference platform (`computeK` + `snapKToMultipleOf3` + `buildGenderBalancedChunks`); team count divisible by 3; sizes 4 or 5 only; **random Fisher-Yates shuffle** (no ascending roll-number ordering); **3 gender-balance modes**: STANDARD (shuffled M+F half/half per team), IGNORE (fully random), CLUSTER_FEMALE (all-female first, then mixed); atomically auto-creates one assignment per team; returns pairings preview table; deep-link preselection from session rows |
 | Assignment generation | ✅ | `/cycles/[cycleId]/assignments` + `POST /api/cycles/[cycleId]/assignments` — assignments auto-created atomically at team generation time (one per team); explicit Regenerate from Teams available for reset; deep-link preselection from session rows via server-side query handoff |
 | Session role mapping | ✅ | `/cycles/[cycleId]/sessions/[sessionId]/role-mapping` + `POST /api/cycles/[cycleId]/sessions/[sessionId]/role-mappings` — reference `pairIdx = (blockIndex−1)×3 + (sessionIndex−1)` formula; assigns 3 separate teams per session (one per role: Presenter / Tech Reviewer / Feedback Strategist); student representative cycles through team members by block |
 | Grade entry UI (per role: Presenter / Reviewer / Strategist) | ✅ | `/cycles/[cycleId]/sessions/[sessionId]/grades` — server-side auth guard (ADMIN/HOD/PRINCIPAL/FACULTY only); rubric-based role scoring (0-5 per dimension), rubric-dimension tooltips, and per-student progress indicators |
