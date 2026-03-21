@@ -183,8 +183,8 @@ Open **http://localhost:3000** in your browser.
 | `/dashboard` | Role-aware operational dashboard (includes principal view when assigned) | All authenticated users |
 | `/cycles` | Academic cycle list and cycle creation | Admin / Principal / HoD |
 | `/cycles/[cycleId]` | Cycle detail and guided session plan CRUD (batch-aware course/faculty filtering) | Admin / Principal / HoD |
-| `/cycles/[cycleId]/teams` | Team generation and review for a cycle | Admin / Principal / HoD / Faculty |
-| `/cycles/[cycleId]/assignments` | Assignment generation and review for team-wise work | Admin / Principal / HoD / Faculty |
+| `/cycles/[cycleId]/teams` | Team generation, editing, and export for a cycle | Admin / Principal / HoD / Faculty |
+| `/cycles/[cycleId]/assignments` | P3 assignment engine — Bloom's taxonomy, 4 types, reserves, approval, export | Admin / Principal / HoD / Faculty |
 | `/cycles/[cycleId]/sessions/[sessionId]/grades` | Role-wise grade entry, finalization, and lock workflow | Admin / Principal / HoD |
 | `/cycles/[cycleId]/sessions/[sessionId]/role-mapping` | Auto role mapping per team for a specific session | Admin / Principal / HoD / Faculty |
 | `/batches` | Batch list and batch creation | Admin / Principal / HoD |
@@ -205,8 +205,10 @@ Open **http://localhost:3000** in your browser.
 | `GET/POST` | `/api/cycles` | Session role (Admin/Principal/HoD) | List cycles / create cycle |
 | `GET/PATCH` | `/api/cycles/[cycleId]` | Session role (Admin/Principal/HoD) | Read or edit cycle; activate/complete transitions |
 | `GET` | `/api/cycles/options` | Session role (Admin/Principal/HoD) | Fetch batch/course/faculty options for planning |
-| `GET/POST` | `/api/cycles/[cycleId]/teams` | Session role (Admin/Principal/HoD/Faculty for read) | List generated teams / generate teams by size |
-| `GET/POST` | `/api/cycles/[cycleId]/assignments` | Session role (Admin/Principal/HoD/Faculty for read) | List generated assignments / generate one per team |
+| `GET/POST/PATCH` | `/api/cycles/[cycleId]/teams` | Session role (Admin/Principal/HoD/Faculty for read) | List generated teams / generate teams by size / edit teams (move student, rename) |
+| `GET` | `/api/cycles/[cycleId]/teams/export` | Session role | Export teams as CSV or JSON (`?format=csv\|json`) |
+| `GET/POST/PATCH` | `/api/cycles/[cycleId]/assignments` | Session role (Admin/Principal/HoD/Faculty for read) | P3 assignment engine — generate with Bloom's taxonomy, 4 types, 12+3 reserve / approve / activate reserve |
+| `GET` | `/api/cycles/[cycleId]/assignments/export` | Session role | Export assignments as CSV or JSON (`?format=csv\|json`) |
 | `GET/POST` | `/api/cycles/[cycleId]/sessions` | Session role (Admin/Principal/HoD) | List or create session plans for a cycle (validates batch-course-faculty compatibility) |
 | `PATCH/DELETE` | `/api/cycles/[cycleId]/sessions/[sessionId]` | Session role (Admin/Principal/HoD) | Update session plan or delete it |
 | `GET/PATCH` | `/api/cycles/[cycleId]/sessions/[sessionId]/grades` | Session role (Admin/HoD/Faculty) | Load rubric + roster + grade records, save draft role grades |

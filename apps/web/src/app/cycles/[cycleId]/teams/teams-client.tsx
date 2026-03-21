@@ -140,6 +140,29 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
     }
   }
 
+  const [editMode, setEditMode] = useState(false);
+
+  async function moveStudent(studentId: string, fromTeamId: string, toTeamId: string) {
+    try {
+      const res = await fetch(`/api/cycles/${cycleId}/teams`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move_student", studentId, fromTeamId, toTeamId }),
+      });
+      if (!res.ok) {
+        const data = await readJsonBody<{ error?: string }>(res);
+        throw new Error(data?.error ?? "Failed to move student");
+      }
+      await loadTeams(batchId, courseId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to move student");
+    }
+  }
+
+  function exportUrl(fmt: "csv" | "json") {
+    return `/api/cycles/${cycleId}/teams/export?batchId=${encodeURIComponent(batchId)}&courseId=${encodeURIComponent(courseId)}&format=${fmt}`;
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -191,6 +214,16 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
               </label>
             ))}
           </div>
+          {/* Export + Edit buttons */}
+          {teams.length > 0 && batchId && courseId ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+              <a href={exportUrl("csv")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" download>⬇ CSV</a>
+              <a href={exportUrl("json")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50" download>⬇ JSON</a>
+              <button type="button" onClick={() => setEditMode(!editMode)} className={`ml-auto rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${editMode ? "border-amber-500 bg-amber-50 text-amber-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
+                {editMode ? "✓ Done Editing" : "✏️ Edit Teams"}
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -233,7 +266,7 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
                             <span
                               key={m.student.id}
                               title={`${m.student.rollNumber} · ${m.student.gender ?? "?"}`}
-                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
                                 m.student.gender === "M"
                                   ? "bg-blue-100 text-blue-800"
                                   : m.student.gender === "F"
@@ -242,6 +275,21 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
                               }`}
                             >
                               {m.student.name.split(" ")[0]}
+                              {editMode ? (
+                                <select
+                                  className="ml-1 rounded border border-slate-200 bg-white px-1 py-0 text-[10px] text-slate-600"
+                                  defaultValue=""
+                                  onChange={(ev) => {
+                                    if (ev.target.value) moveStudent(m.student.id, team.id, ev.target.value);
+                                    ev.target.value = "";
+                                  }}
+                                >
+                                  <option value="">→</option>
+                                  {teams.filter((t) => t.id !== team.id).map((t) => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                  ))}
+                                </select>
+                              ) : null}
                             </span>
                           ))}
                         </div>

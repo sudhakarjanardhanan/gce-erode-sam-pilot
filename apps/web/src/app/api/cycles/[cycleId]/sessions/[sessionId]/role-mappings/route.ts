@@ -76,17 +76,19 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
-  // Get all teams for this cycle/batch/course in deterministic order (name asc = Team 01, 02, ...)
+  // Get all teams for this cycle/batch/course ordered by shuffleIndex (pairing order)
+  // Falls back to name asc if shuffleIndex not set (legacy teams)
   const teams = await db.team.findMany({
     where: {
       cycleId,
       batchId: session.batchId,
       courseId: session.courseId,
     },
-    orderBy: [{ name: "asc" }],
+    orderBy: [{ shuffleIndex: "asc" }, { name: "asc" }],
     select: {
       id: true,
       name: true,
+      shuffleIndex: true,
       members: {
         orderBy: [{ memberIndex: "asc" }],
         select: { studentId: true },

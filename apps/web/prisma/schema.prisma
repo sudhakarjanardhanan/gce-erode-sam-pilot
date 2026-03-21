@@ -265,6 +265,7 @@ model Team {
   batchId      String
   courseId     String
   name         String
+  shuffleIndex Int?     // Position in the random pairing order (0-based); set during team generation
   createdBy    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -295,17 +296,24 @@ model TeamMember {
 }
 
 model Assignment {
-  id         String           @id @default(cuid())
-  cycleId    String
-  batchId    String
-  courseId   String
-  teamId     String
-  title      String
-  brief      String?
-  status     AssignmentStatus @default(GENERATED)
-  createdBy  String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  cycleId            String
+  batchId            String
+  courseId            String
+  teamId             String
+  title              String
+  brief              String?
+  assignType         String?          // presentation | mini_project | practical | problem_solve
+  unit               String?          // Syllabus unit used as topic
+  bloomLevel         Int?             // 1-5 Bloom's Taxonomy level
+  learningObjectives String[]         // Array of LO strings
+  sessionSlot        Int?             // Session slot number (null for reserves)
+  isReserve          Boolean          @default(false)
+  approved           Boolean          @default(false)
+  status             AssignmentStatus @default(GENERATED)
+  createdBy          String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   cycle AcademicCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
   batch Batch         @relation(fields: [batchId], references: [id], onDelete: Restrict)

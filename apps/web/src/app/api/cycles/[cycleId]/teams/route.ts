@@ -335,6 +335,8 @@ export async function POST(request: Request, context: RouteContext) {
         await tx.team.deleteMany({ where: { cycleId, batchId, courseId } });
       }
 
+      // Build teams first, then assign shuffleIndex for pairings
+      const createdTeamIds: string[] = [];
       for (let i = 0; i < chunks.length; i += 1) {
         const teamName = `Team ${String(i + 1).padStart(2, "0")}`;
         const team = await tx.team.create({
@@ -348,6 +350,8 @@ export async function POST(request: Request, context: RouteContext) {
           select: { id: true },
         });
 
+        createdTeamIds.push(team.id);
+
         await tx.teamMember.createMany({
           data: chunks[i].map((student, idx) => ({
             teamId: team.id,
@@ -355,17 +359,28 @@ export async function POST(request: Request, context: RouteContext) {
             memberIndex: idx + 1,
           })),
         });
+      }
 
-        // Auto-generate one assignment per team (linked to this team)
+      // Assign random shuffleIndex for pairing order (reference: computePairings uses shuf([...teams]))
+      const shuffledIndices = shuffle(Array.from({ length: k }, (_, i) => i));
+      for (let i = 0; i < createdTeamIds.length; i++) {
+        await tx.team.update({
+          where: { id: createdTeamIds[i] },
+          data: { shuffleIndex: shuffledIndices[i] },
+        });
+      }
+
+      // Auto-generate one assignment per team (linked to this team)
+      for (let i = 0; i < createdTeamIds.length; i++) {
         const assignTitle = `${course.code} Assignment ${String(i + 1).padStart(2, "0")}`;
         await tx.assignment.create({
           data: {
             cycleId,
             batchId,
             courseId,
-            teamId: team.id,
+            teamId: createdTeamIds[i],
             title: assignTitle,
-            brief: `${teamName} should prepare and present an outcome-based problem statement for ${course.code} (${course.name}).`,
+            brief: `Team ${String(i + 1).padStart(2, "0")} should prepare and present an outcome-based problem statement for ${course.code} (${course.name}).`,
             status: "GENERATED",
             createdBy: authz.session?.user?.email ?? null,
           },
@@ -375,9 +390,19 @@ export async function POST(request: Request, context: RouteContext) {
 
     const teamCount = chunks.length;
 
-    // Build pairing preview: which team is Presenter / Tech Reviewer / Feedback Strategist in each
-    // session block.  Formula mirrors the role-mapping route so they stay in sync.
-    const teamNames = Array.from({ length: k }, (_, i) => `Team ${String(i + 1).padStart(2, "0")}`);
+    // Build pairing preview using SHUFFLED order — matches reference computePairings()
+    // which does: const order = shuf([...teams]);
+    // We reconstruct the shuffled order from the shuffleIndex we just stored
+    const storedTeams = await db.team.findMany({
+      where: { cycleId, batchId, courseId },
+      orderBy: [{ name: "asc" }],
+      select: { name: true, shuffleIndex: true },
+    });
+    // Sort by shuffleIndex to get the randomized pairing order
+    const orderedTeams = [...storedTeams].sort(
+      (a, b) => (a.shuffleIndex ?? 0) - (b.shuffleIndex ?? 0),
+    );
+    const teamNames = orderedTeams.map((t) => t.name);
     const pairings: Array<{ block: number; sessions: Array<{ session: number; P: string; TR: string; FP: string }> }> = [];
     for (let b = 0; b < Math.floor(k / 3); b++) {
       const sessions: Array<{ session: number; P: string; TR: string; FP: string }> = [];
@@ -411,6 +436,86 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json(responseBody);
   } catch (error) {
     const apiError = toApiError(error, "Failed to generate teams");
+    return NextResponse.json(
+      { error: apiError.message },
+      { status: apiError.status },
+    );
+  }
+}
+
+/**
+ * PATCH — Edit teams: move a student from one team to another,
+ * or rename a team. Matches reference openTeamEditModal / moveStudentToEditTeam.
+ */
+export async function PATCH(request: Request, context: RouteContext) {
+  try {
+    const authz = await requireSessionRoles(["ADMIN", "HOD", "PRINCIPAL"]);
+    if (!authz.ok) {
+      return NextResponse.json(
+        { error: authz.reason === "UNAUTHENTICATED" ? "Unauthorized" : "Forbidden" },
+        { status: authz.reason === "UNAUTHENTICATED" ? 401 : 403 },
+      );
+    }
+
+    const { cycleId } = await context.params;
+    const body = (await request.json()) as {
+      action: "move_student" | "rename_team";
+      studentId?: string;
+      fromTeamId?: string;
+      toTeamId?: string;
+      teamId?: string;
+      newName?: string;
+    };
+
+    if (body.action === "move_student") {
+      if (!body.studentId || !body.fromTeamId || !body.toTeamId) {
+        return NextResponse.json(
+          { error: "studentId, fromTeamId, and toTeamId are required" },
+          { status: 400 },
+        );
+      }
+
+      await db.$transaction(async (tx) => {
+        // Remove from source team
+        await tx.teamMember.deleteMany({
+          where: { teamId: body.fromTeamId, studentId: body.studentId },
+        });
+        // Find next member index in target team
+        const maxIdx = await tx.teamMember.aggregate({
+          where: { teamId: body.toTeamId },
+          _max: { memberIndex: true },
+        });
+        await tx.teamMember.create({
+          data: {
+            teamId: body.toTeamId!,
+            studentId: body.studentId!,
+            memberIndex: (maxIdx._max.memberIndex ?? 0) + 1,
+          },
+        });
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === "rename_team") {
+      if (!body.teamId || !body.newName?.trim()) {
+        return NextResponse.json(
+          { error: "teamId and newName are required" },
+          { status: 400 },
+        );
+      }
+
+      await db.team.update({
+        where: { id: body.teamId },
+        data: { name: body.newName.trim() },
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+  } catch (error) {
+    const apiError = toApiError(error, "Failed to edit team");
     return NextResponse.json(
       { error: apiError.message },
       { status: apiError.status },

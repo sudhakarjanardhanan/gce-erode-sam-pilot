@@ -1,6 +1,6 @@
 # SAM Pilot — Implementation Status
 
-Last updated: 2026-03-21 (gender-balanced random team generation — migration 0006, Fisher-Yates shuffle, 3 gender modes matching reference v738)
+Last updated: 2026-03-21 (P3 assignment engine, team edit/export, assignment export — migration 0007 `p3_assignment_fields`)
 Branch: `main`
 
 ---
@@ -22,8 +22,8 @@ Branch: `main`
 | Repository setup and monorepo layout | ✅ | `apps/web/` houses the Next.js app |
 | Next.js 16 app scaffold (App Router + TypeScript + Tailwind) | ✅ | |
 | Prisma 7 with adapter-pg + pg driver | ✅ | `src/lib/db.ts` singleton |
-| PostgreSQL schema — core SAM models | ✅ | Users, Departments, Batches, Courses, Faculty, Students (incl. gender), Cycles, Sessions, Grades, Reports |
-| Migration artifacts (SQL-based, ready to apply) | ✅ | `prisma/migrations/0001_init` through `0006_student_gender` |
+| PostgreSQL schema — core SAM models | ✅ | Users, Departments, Batches, Courses, Faculty, Students (incl. gender), Cycles, Sessions, Grades, Reports, Teams (shuffleIndex), Assignments (P3 fields) |
+| Migration artifacts (SQL-based, ready to apply) | ✅ | `prisma/migrations/0001_init` through `0007_p3_assignment_fields` |
 | Docker Compose for local PostgreSQL | ✅ | `apps/web/docker-compose.yml` |
 | `.env.example` with all required variables | ✅ | `DATABASE_URL`, `REVIEW_API_TOKEN` |
 | Prisma seed script — departments / courses / rubrics | ✅ | 8 departments · 235 courses · 3 rubrics (dry-run verified) |
@@ -117,9 +117,13 @@ Branch: `main`
 |---|---|---|
 | Cycle CRUD API | ✅ | `/api/cycles` + `/api/cycles/[cycleId]` (create/edit/activate/complete) |
 | Session plan management UI | ✅ | `/cycles/[cycleId]` supports create/status-update/delete with helper text, intelligent batch-based course/faculty filtering, auto-suggested Block/Session defaults, and in-page flow guidance from session planning to teams/assignments/role-mapping/grades |
-| Team generation | ✅ | `/cycles/[cycleId]/teams` + `POST /api/cycles/[cycleId]/teams` — ÷3-snap algorithm matching reference platform (`computeK` + `snapKToMultipleOf3` + `buildGenderBalancedChunks`); team count divisible by 3; sizes 4 or 5 only; **random Fisher-Yates shuffle** (no ascending roll-number ordering); **3 gender-balance modes**: STANDARD (shuffled M+F half/half per team), IGNORE (fully random), CLUSTER_FEMALE (all-female first, then mixed); atomically auto-creates one assignment per team; returns pairings preview table; deep-link preselection from session rows |
-| Assignment generation | ✅ | `/cycles/[cycleId]/assignments` + `POST /api/cycles/[cycleId]/assignments` — assignments auto-created atomically at team generation time (one per team); explicit Regenerate from Teams available for reset; deep-link preselection from session rows via server-side query handoff |
-| Session role mapping | ✅ | `/cycles/[cycleId]/sessions/[sessionId]/role-mapping` + `POST /api/cycles/[cycleId]/sessions/[sessionId]/role-mappings` — reference `pairIdx = (blockIndex−1)×3 + (sessionIndex−1)` formula; assigns 3 separate teams per session (one per role: Presenter / Tech Reviewer / Feedback Strategist); student representative cycles through team members by block |
+| Team generation | ✅ | `/cycles/[cycleId]/teams` + `POST /api/cycles/[cycleId]/teams` — ÷3-snap algorithm matching reference platform (`computeK` + `snapKToMultipleOf3` + `buildGenderBalancedChunks`); team count divisible by 3; sizes 4 or 5 only; **random Fisher-Yates shuffle** with `shuffleIndex` per team (no ascending roll-number ordering); **3 gender-balance modes**: STANDARD (shuffled M+F half/half per team), IGNORE (fully random), CLUSTER_FEMALE (all-female first, then mixed); atomically auto-creates one assignment per team; returns pairings preview table; deep-link preselection from session rows |
+| Team editing | ✅ | `PATCH /api/cycles/[cycleId]/teams` — `move_student` (transfer student between teams) and `rename_team` actions; UI toggle for edit mode with per-member "Move to" dropdown |
+| Team export | ✅ | `GET /api/cycles/[cycleId]/teams/export?format=csv|json` — CSV columns: Team, Roll Number, Student Name, Gender, Batch, Department, Course Code, Course Name; JSON nested team→members structure; download buttons in UI |
+| P3 Assignment engine | ✅ | `/cycles/[cycleId]/assignments` + full rewrite of `POST /api/cycles/[cycleId]/assignments` — **Bloom's taxonomy** (5 levels: Remember→Evaluate; Cycle 1 uses L1-3, Cycle 2 uses L2-4); **4 assignment types** (Presentation, Mini Project, Practical Exercise, Problem Solving) rotated across 12 active + 3 reserve slots; hash-based stable verb selection matching reference `p3BuildTitle`; rich `ASSIGN_TPL` description templates per type; syllabus unit integration via `src/lib/syllabus.ts` parsing `docs/syllabus/*.md` files; Auto-Cycle mode (recommended) and Single-Type mode |
+| Assignment approval workflow | ✅ | `PATCH /api/cycles/[cycleId]/assignments` — `approve` (single), `approve_all` (batch), `activate_reserve` (promote reserve to active with next slot number) |
+| Assignment export | ✅ | `GET /api/cycles/[cycleId]/assignments/export?format=csv|json` — CSV columns matching reference `p3ExportCSV`: Session Slot, Team, Members, Rolls, Unit/Topic, Type, Bloom Level/Label, LO, Reserve, Approved, Course, Dept, Batch; download buttons in UI |
+| Session role mapping | ✅ | `/cycles/[cycleId]/sessions/[sessionId]/role-mapping` + `POST /api/cycles/[cycleId]/sessions/[sessionId]/role-mappings` — reference `pairIdx = (blockIndex−1)×3 + (sessionIndex−1)` formula; assigns 3 separate teams per session (one per role: Presenter / Tech Reviewer / Feedback Strategist); student representative cycles through team members by block; **teams now ordered by `shuffleIndex`** so role rotations match random pairing order |
 | Grade entry UI (per role: Presenter / Reviewer / Strategist) | ✅ | `/cycles/[cycleId]/sessions/[sessionId]/grades` — server-side auth guard (ADMIN/HOD/PRINCIPAL/FACULTY only); rubric-based role scoring (0-5 per dimension), rubric-dimension tooltips, and per-student progress indicators |
 | Grade finalization and lock workflow | ✅ | Role-wise finalize endpoint; session auto-locks when all three roles are finalized for all students |
 | Batch and student management | ✅ | `/batches`, `/batches/[batchId]` with secured CRUD APIs for batches/students |
