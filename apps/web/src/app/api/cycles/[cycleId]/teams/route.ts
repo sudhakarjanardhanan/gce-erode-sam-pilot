@@ -49,22 +49,134 @@ function snapKToMultipleOf3(
   return { k: rawK, adjusted: false }; // edge case: cannot snap
 }
 
-/**
- * Build k team chunks from a sorted student array.
- * First t5 = (n - 4k) teams get 5 students each; remaining t4 = (5k - n) teams
- * get 4 students each.  Total = 5*t5 + 4*t4 = 5(n-4k) + 4(5k-n) = n ✓
- */
-function buildTeamChunks<T>(students: T[], k: number): T[][] {
-  const n = students.length;
-  const t5 = n - 4 * k;
-  const chunks: T[][] = [];
-  let idx = 0;
-  for (let i = 0; i < k; i++) {
-    const size = i < t5 ? 5 : 4;
-    chunks.push(students.slice(idx, idx + size));
-    idx += size;
+/** Fisher-Yates shuffle — matches reference `shuf` helper exactly. */
+function shuffle<T>(arr: T[]): T[] {
+  const b = [...arr];
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [b[i], b[j]] = [b[j], b[i]];
   }
-  return chunks;
+  return b;
+}
+
+type Student = { id: string; rollNumber: string; gender: string | null };
+type GenderMode = "STANDARD" | "IGNORE" | "CLUSTER_FEMALE";
+
+/**
+ * Build k gender-balanced, randomly-shuffled team chunks.
+ * Mirrors the reference platform's generateTeams() distributing logic exactly:
+ *
+ * STANDARD (default): Shuffle M and F pools separately; fill each team
+ *   ~half/half (max 1 M/F difference).  Leftovers distributed round-robin.
+ *
+ * IGNORE: Shuffle all students together; fill teams sequentially.
+ *
+ * CLUSTER_FEMALE: Form all-female teams first (as many as fPool can fill),
+ *   then standard mixed balance for remaining teams.
+ *
+ * Team sizes follow base = floor(n/k), rem = n%k so the first `rem` teams
+ * get one extra member.  For our valid k values (teams of 4 or 5) this equals
+ * the t5/t4 formula used elsewhere.
+ */
+function buildGenderBalancedChunks(
+  students: Student[],
+  k: number,
+  mode: GenderMode,
+): Student[][] {
+  const n = students.length;
+  const base = Math.floor(n / k);
+  const rem = n % k;
+  const sizes = Array.from({ length: k }, (_, i) => base + (i < rem ? 1 : 0));
+  const teams: Student[][] = Array.from({ length: k }, () => []);
+
+  if (mode === "IGNORE") {
+    const all = shuffle([...students]);
+    teams.forEach((t, i) => {
+      t.push(...all.splice(0, sizes[i]));
+    });
+    // distribute any leftovers round-robin
+    all.forEach((s, i) => teams[i % k].push(s));
+    return teams;
+  }
+
+  const mPool = shuffle(students.filter((s) => s.gender === "M"));
+  const fPool = shuffle(students.filter((s) => s.gender === "F"));
+  // Students with no gender info get shuffled into mPool for distribution
+  shuffle(students.filter((s) => s.gender !== "M" && s.gender !== "F")).forEach((s) =>
+    mPool.push(s),
+  );
+
+  if (mode === "CLUSTER_FEMALE") {
+    let tIdx = 0;
+    const femaleTeamCount = Math.min(Math.floor(fPool.length / 4), k);
+    for (let ft = 0; ft < femaleTeamCount && tIdx < k; ft++, tIdx++) {
+      const sz = sizes[tIdx];
+      if (fPool.length >= sz) {
+        for (let j = 0; j < sz; j++) teams[tIdx].push(fPool.shift()!);
+      } else {
+        break;
+      }
+    }
+    // Remaining teams: standard mixed balance
+    for (let i = tIdx; i < k; i++) {
+      const sz = sizes[i];
+      const half = Math.floor(sz / 2);
+      const odd = sz % 2;
+      let wantM = half;
+      let wantF = half;
+      if (odd) {
+        if (mPool.length >= fPool.length) wantM++;
+        else wantF++;
+      }
+      wantM = Math.min(wantM, mPool.length);
+      wantF = Math.min(wantF, fPool.length);
+      let need = sz - wantM - wantF;
+      if (need > 0) {
+        const xM = Math.min(need, mPool.length);
+        wantM += xM;
+        need -= xM;
+      }
+      if (need > 0 && fPool.length > wantF) {
+        const xF = Math.min(need, fPool.length - wantF);
+        wantF += xF;
+      }
+      for (let j = 0; j < wantM; j++) { const s = mPool.shift(); if (s) teams[i].push(s); }
+      for (let j = 0; j < wantF; j++) { const s = fPool.shift(); if (s) teams[i].push(s); }
+    }
+    // distribute leftovers
+    [...mPool, ...fPool].forEach((s, i) => teams[i % k].push(s));
+    return teams;
+  }
+
+  // STANDARD: max ~1 M/F difference per team
+  teams.forEach((t, i) => {
+    const sz = sizes[i];
+    const half = Math.floor(sz / 2);
+    const odd = sz % 2;
+    let wantM = half;
+    let wantF = half;
+    if (odd) {
+      if (mPool.length >= fPool.length) wantM++;
+      else wantF++;
+    }
+    wantM = Math.min(wantM, mPool.length);
+    wantF = Math.min(wantF, fPool.length);
+    let need = sz - wantM - wantF;
+    if (need > 0) {
+      const xM = Math.min(need, mPool.length - wantM);
+      wantM += xM;
+      need -= xM;
+    }
+    if (need > 0) {
+      const xF = Math.min(need, fPool.length - wantF);
+      wantF += xF;
+    }
+    for (let j = 0; j < wantM; j++) t.push(mPool.shift()!);
+    for (let j = 0; j < wantF; j++) t.push(fPool.shift()!);
+  });
+  // distribute leftovers
+  [...mPool, ...fPool].forEach((s, i) => teams[i % k].push(s));
+  return teams;
 }
 
 function toApiError(error: unknown, fallback: string) {
@@ -115,7 +227,7 @@ export async function GET(request: Request, context: RouteContext) {
           orderBy: [{ memberIndex: "asc" }],
           select: {
             memberIndex: true,
-            student: { select: { id: true, rollNumber: true, name: true } },
+            student: { select: { id: true, rollNumber: true, name: true, gender: true } },
           },
         },
       },
@@ -146,6 +258,7 @@ export async function POST(request: Request, context: RouteContext) {
       batchId?: string;
       courseId?: string;
       teamSize?: number;
+      genderMode?: string;
       resetExisting?: boolean;
     };
 
@@ -154,6 +267,12 @@ export async function POST(request: Request, context: RouteContext) {
     // teamSize is a preferred hint (default 4, matching reference platform); actual
     // team sizes will be 4 or 5 after the ÷3 snap.  Max 8 per reference UI.
     const teamSize = Number(body.teamSize ?? 4);
+    const genderMode: GenderMode =
+      body.genderMode === "IGNORE"
+        ? "IGNORE"
+        : body.genderMode === "CLUSTER_FEMALE"
+          ? "CLUSTER_FEMALE"
+          : "STANDARD";
     const resetExisting = body.resetExisting !== false;
 
     if (!batchId || !courseId) {
@@ -173,7 +292,7 @@ export async function POST(request: Request, context: RouteContext) {
           semester: true,
           students: {
             orderBy: [{ rollNumber: "asc" }],
-            select: { id: true, rollNumber: true },
+            select: { id: true, rollNumber: true, gender: true },
           },
         },
       }),
@@ -201,7 +320,7 @@ export async function POST(request: Request, context: RouteContext) {
     const n = batch.students.length;
     const rawK = computeK(n, teamSize);
     const { k, adjusted } = snapKToMultipleOf3(rawK, n);
-    const chunks = buildTeamChunks(batch.students, k);
+    const chunks = buildGenderBalancedChunks(batch.students, k, genderMode);
     const t5 = n - 4 * k; // how many teams of 5
     const t4 = 5 * k - n; // how many teams of 4
 

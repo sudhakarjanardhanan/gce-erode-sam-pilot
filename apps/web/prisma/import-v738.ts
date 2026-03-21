@@ -7,7 +7,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 type BatchInfo = Record<string, { label: string; year: number; sem: string; sems?: string[] }>;
-type BatchStudent = { id?: string; roll?: string; name?: string; email?: string };
+type BatchStudent = { id?: string; roll?: string; name?: string; email?: string; gender?: string };
 type BatchMap = Record<string, Record<string, BatchStudent[]>>;
 type FacultyRow = { name?: string; dept?: string; email?: string };
 
@@ -144,6 +144,11 @@ function normalizeEmail(value: string | undefined): string | null {
   return email.length > 0 ? email : null;
 }
 
+function normalizeGender(value: string | undefined): string | null {
+  const g = (value ?? "").trim().toUpperCase();
+  return g === "M" || g === "F" ? g : null;
+}
+
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const refFile = resolveReferenceFile();
@@ -270,12 +275,14 @@ async function main() {
           update: {
             name,
             email: normalizeEmail(s.email),
+            gender: normalizeGender(s.gender),
             batchId,
           },
           create: {
             rollNumber,
             name,
             email: normalizeEmail(s.email),
+            gender: normalizeGender(s.gender),
             batchId,
           },
         });

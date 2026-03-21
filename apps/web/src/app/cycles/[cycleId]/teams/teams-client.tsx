@@ -10,7 +10,7 @@ type TeamDto = {
   course: { code: string; name: string };
   members: Array<{
     memberIndex: number;
-    student: { id: string; rollNumber: string; name: string };
+    student: { id: string; rollNumber: string; name: string; gender: string | null };
   }>;
 };
 
@@ -32,6 +32,8 @@ async function readJsonBody<T>(response: Response): Promise<T | null> {
   }
 }
 
+type GenderMode = "STANDARD" | "IGNORE" | "CLUSTER_FEMALE";
+
 type PairingBlock = {
   block: number;
   sessions: Array<{ session: number; P: string; TR: string; FP: string }>;
@@ -50,6 +52,7 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
   const [batchId, setBatchId] = useState(initialBatchId);
   const [courseId, setCourseId] = useState(initialCourseId);
   const [teamSize, setTeamSize] = useState(4);
+  const [genderMode, setGenderMode] = useState<GenderMode>("STANDARD");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -110,7 +113,7 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
       const res = await fetch(`/api/cycles/${cycleId}/teams`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batchId, courseId, teamSize, resetExisting: true }),
+        body: JSON.stringify({ batchId, courseId, teamSize, genderMode, resetExisting: true }),
       });
       const data = await readJsonBody<{ error?: string; teamCount?: number; assignmentCount?: number; studentCount?: number; t5?: number; t4?: number; message?: string; warning?: string; pairings?: PairingBlock[] }>(res);
       if (!res.ok) {
@@ -123,6 +126,8 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
       const parts: string[] = [`Generated ${data.teamCount ?? 0} teams for ${data.studentCount ?? 0} students.`];
       if ((data.t5 ?? 0) > 0) parts.push(`${data.t5} team(s) of 5, ${data.t4 ?? 0} team(s) of 4.`);
       parts.push(`${data.assignmentCount ?? data.teamCount ?? 0} assignments auto-created.`);
+      const modeLabel = genderMode === "IGNORE" ? "Gender balance: off." : genderMode === "CLUSTER_FEMALE" ? "Mode: female-cluster." : "Mode: gender-balanced.";
+      parts.push(modeLabel);
       if (data.message) parts.push(data.message);
       if (data.warning) parts.push(`⚠️ ${data.warning}`);
       setMessage(parts.join(" "));
@@ -141,7 +146,7 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
         <header>
           <Link href={`/cycles/${cycleId}`} className="text-sm font-medium text-slate-700 hover:underline">Back to Cycle</Link>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">Team Generation</h1>
-          <p className="mt-1 text-sm text-slate-600">Teams are formed in sizes of 4 or 5. The count is automatically snapped to a multiple of 3 so every team rotates through Presenter, Tech Reviewer, and Feedback Provider roles exactly once per round.</p>
+          <p className="mt-1 text-sm text-slate-600">Teams are formed in sizes of 4 or 5 with random shuffling and gender balance. The team count is snapped to a multiple of 3 so every team rotates through Presenter, Tech Reviewer, and Feedback Provider roles exactly once per round.</p>
         </header>
 
         {error ? <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</div> : null}
@@ -166,6 +171,26 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
               {loading ? "Generating..." : "Generate Teams"}
             </button>
           </form>
+          <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-4">
+            <span className="text-xs font-semibold text-slate-600">⚧ Gender balance:</span>
+            {([
+              { value: "STANDARD", label: "✅ Balanced (mixed, ~half/half)", title: "Shuffle M and F separately; each team gets roughly equal numbers" },
+              { value: "IGNORE",   label: "⚠️ Ignore gender",               title: "Shuffle all students together with no gender constraint" },
+              { value: "CLUSTER_FEMALE", label: "🌸 Female-first cluster",    title: "Form all-female teams first, then fill remaining teams with standard balance" },
+            ] as { value: GenderMode; label: string; title: string }[]).map(({ value, label, title }) => (
+              <label key={value} className="flex cursor-pointer items-center gap-1.5 text-xs" title={title}>
+                <input
+                  type="radio"
+                  name="genderMode"
+                  value={value}
+                  checked={genderMode === value}
+                  onChange={() => setGenderMode(value)}
+                  className="accent-slate-700"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -174,7 +199,14 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
               <thead className="bg-slate-100 text-slate-700">
                 <tr>
                   <th className="px-3 py-2">Team</th>
-                  <th className="px-3 py-2">Members</th>
+                  <th className="px-3 py-2">
+                    Members
+                    <span className="ml-2 font-normal text-xs text-slate-500">
+                      <span className="inline-block rounded bg-blue-100 px-1 text-blue-800">♂ M</span>
+                      {" "}
+                      <span className="inline-block rounded bg-pink-100 px-1 text-pink-800">♀ F</span>
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -183,20 +215,40 @@ export function TeamsClient({ cycleId, initialBatchId = "", initialCourseId = ""
                     <td colSpan={2} className="px-3 py-8 text-center text-slate-500">No teams generated yet.</td>
                   </tr>
                 ) : (
-                  teams.map((team) => (
+                  teams.map((team) => {
+                    const mCount = team.members.filter((m) => m.student.gender === "M").length;
+                    const fCount = team.members.filter((m) => m.student.gender === "F").length;
+                    const unknownCount = team.members.length - mCount - fCount;
+                    return (
                     <tr key={team.id} className="border-t border-slate-200">
-                      <td className="px-3 py-2 font-semibold text-slate-900">{team.name}</td>
+                      <td className="px-3 py-2 align-top">
+                        <div className="font-semibold text-slate-900">{team.name}</div>
+                        <div className="mt-0.5 text-xs text-slate-500">
+                          ♂ {mCount} ♀ {fCount}{unknownCount > 0 ? ` ? ${unknownCount}` : ""}
+                        </div>
+                      </td>
                       <td className="px-3 py-2">
-                        <div className="space-y-1">
+                        <div className="flex flex-wrap gap-1">
                           {team.members.map((m) => (
-                            <div key={m.student.id} className="text-xs text-slate-700">
-                              #{m.memberIndex} · {m.student.rollNumber} · {m.student.name}
-                            </div>
+                            <span
+                              key={m.student.id}
+                              title={`${m.student.rollNumber} · ${m.student.gender ?? "?"}`}
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${
+                                m.student.gender === "M"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : m.student.gender === "F"
+                                    ? "bg-pink-100 text-pink-800"
+                                    : "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              {m.student.name.split(" ")[0]}
+                            </span>
                           ))}
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
