@@ -31,19 +31,21 @@ export default function PrincipalDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      fetch("/api/principal/cycle-summary").then((r) => r.json() as Promise<{ cycles?: CycleSummary[] }>),
-      fetch("/api/principal/cumulative").then((r) => r.json() as Promise<{ rows?: CumulRow[] }>),
-    ])
-      .then(([cs, cu]) => {
+    void (async () => {
+      setLoading(true);
+      try {
+        const [cs, cu] = await Promise.all([
+          fetch("/api/principal/cycle-summary").then((r) => r.json() as Promise<{ cycles?: CycleSummary[] }>),
+          fetch("/api/principal/cumulative").then((r) => r.json() as Promise<{ rows?: CumulRow[] }>),
+        ]);
         setCycleSummaries(cs.cycles ?? []);
         setCumulRows(cu.rows ?? []);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  const activeCycles = cycleSummaries.filter((c) => c.status === "ACTIVE" || c.status === "IN_PROGRESS");
   const allCycles = cycleSummaries;
 
   return (

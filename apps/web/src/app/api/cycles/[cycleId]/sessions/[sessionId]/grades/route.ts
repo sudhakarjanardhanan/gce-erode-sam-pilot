@@ -11,14 +11,14 @@ type RouteContext = {
 type RubricDimension = { name?: string; desc?: string; anchor?: string };
 
 // Reference SCALE_LABELS: 4-level competency scale (scores 0–3)
-export const SCALE_LABELS = [
+const SCALE_LABELS = [
   "🌱 Finding Your Ground",
   "⚙️ Building Momentum",
   "🔥 Gaining Confidence",
   "🚀 Leading the Room",
 ] as const;
 
-export const SCORE_MAX = 3; // max per-dimension score (inclusive)
+const SCORE_MAX = 3; // max per-dimension score (inclusive)
 
 // Role-based total mark ceilings matching the reference RUBRICS.maxMarks
 const ROLE_MAX_MARKS: Record<SessionRole, number> = {
