@@ -83,6 +83,19 @@ export default async function DashboardPage() {
             {(isAlumni || isFaculty || isHod || isAdmin || isPrincipal) && (
               <Link href="/mentors/alumni" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Mentor Directory</Link>
             )}
+            <Link href="/departments" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Departments</Link>
+            {(isHod || isAdmin || isPrincipal) && (
+              <Link href="/dashboard/hod" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">HoD Progress</Link>
+            )}
+            {(isPrincipal || isAdmin) && (
+              <Link href="/dashboard/principal" className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700">Principal Analytics</Link>
+            )}
+            {(isPrincipal || isAdmin) && (
+              <Link href="/dashboard/institution" className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">Institution Dashboard</Link>
+            )}
+            {isAdmin && (
+              <Link href="/admin/cleanup" className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">Data Management</Link>
+            )}
           </div>
         </section>
 

@@ -10,6 +10,23 @@ type RouteContext = {
 
 type RubricDimension = { name?: string; desc?: string; anchor?: string };
 
+// Reference SCALE_LABELS: 4-level competency scale (scores 0–3)
+export const SCALE_LABELS = [
+  "🌱 Finding Your Ground",
+  "⚙️ Building Momentum",
+  "🔥 Gaining Confidence",
+  "🚀 Leading the Room",
+] as const;
+
+export const SCORE_MAX = 3; // max per-dimension score (inclusive)
+
+// Role-based total mark ceilings matching the reference RUBRICS.maxMarks
+const ROLE_MAX_MARKS: Record<SessionRole, number> = {
+  [SessionRole.PRESENTER]: 40,
+  [SessionRole.TECHNICAL_REVIEWER]: 30,
+  [SessionRole.FEEDBACK_STRATEGIST]: 30,
+};
+
 type DimensionMeta = { name: string; desc?: string; anchor?: string };
 
 type ScoreMap = Record<string, number>;
@@ -54,7 +71,7 @@ function normalizeScores(input: unknown, dimensions: DimensionMeta[]): ScoreMap 
 
   for (const dim of dimensions) {
     const value = Number(raw[dim.name]);
-    if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 5) {
+    if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > SCORE_MAX) {
       return null;
     }
     scoreMap[dim.name] = value;
@@ -130,10 +147,13 @@ export async function GET(_request: Request, context: RouteContext) {
 
   return NextResponse.json({
     session,
+    scaleLabels: SCALE_LABELS,
+    scoreMax: SCORE_MAX,
     rubrics: Array.from(roleBestRubric.values()).map((r) => ({
       id: r.id,
       role: r.role,
       name: r.name,
+      maxMarks: ROLE_MAX_MARKS[r.role],
       dimensions: normalizeDimensions(r.dimensions),
     })),
     gradeRecords,
@@ -202,11 +222,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const scoreMap = normalizeScores(body.dimensionScores, dimensions);
   if (!scoreMap) {
-    return NextResponse.json({ error: "dimensionScores must include integer scores (0-5) for all rubric dimensions" }, { status: 400 });
+    return NextResponse.json({ error: `dimensionScores must include integer scores (0-${SCORE_MAX}) for all rubric dimensions` }, { status: 400 });
   }
 
-  const totalScore = Object.values(scoreMap).reduce((sum, n) => sum + n, 0);
-  const maxScore = dimensions.length * 5;
+  // Compute weighted total: proportional sum scaled to role maxMarks
+  const rawSum = Object.values(scoreMap).reduce((sum, n) => sum + n, 0);
+  const maxRaw = dimensions.length * SCORE_MAX;
+  const maxScore = ROLE_MAX_MARKS[role];
+  const totalScore = maxRaw > 0 ? Math.round((rawSum / maxRaw) * maxScore) : 0;
 
   const grade = await db.gradeRecord.upsert({
     where: {

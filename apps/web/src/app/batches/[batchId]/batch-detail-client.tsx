@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Batch = {
   id: string;
@@ -19,8 +19,11 @@ type Student = {
   rollNumber: string;
   name: string;
   email: string | null;
+  gender: string | null;
   batchId: string;
 };
+
+const PAGE_SIZE = 25;
 
 type Props = {
   batchId: string;
@@ -35,6 +38,12 @@ export function BatchDetailClient({ batchId }: Props) {
   const [rollNumber, setRollNumber] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [gender, setGender] = useState("");
+
+  // Filter / search state
+  const [search, setSearch] = useState("");
+  const [genderFilter, setGenderFilter] = useState<"" | "M" | "F" | "OTHER">("");
+  const [page, setPage] = useState(1);
 
   async function load() {
     setLoading(true);
@@ -58,6 +67,7 @@ export function BatchDetailClient({ batchId }: Props) {
 
       setBatch(batchData.batch ?? null);
       setStudents(studentData.students ?? []);
+      setPage(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load batch details");
     } finally {
@@ -66,7 +76,7 @@ export function BatchDetailClient({ batchId }: Props) {
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchId]);
 
@@ -79,7 +89,7 @@ export function BatchDetailClient({ batchId }: Props) {
       const res = await fetch(`/api/batches/${batchId}/students`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rollNumber, name, email: email || undefined }),
+        body: JSON.stringify({ rollNumber, name, email: email || undefined, gender: gender || undefined }),
       });
 
       const data = (await res.json()) as { error?: string };
@@ -90,6 +100,7 @@ export function BatchDetailClient({ batchId }: Props) {
       setRollNumber("");
       setName("");
       setEmail("");
+      setGender("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add student");
@@ -118,6 +129,49 @@ export function BatchDetailClient({ batchId }: Props) {
     }
   }
 
+  // Derived: filtered + paginated
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return students.filter((s) => {
+      const textMatch = !q || s.rollNumber.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
+      const gMatch = !genderFilter || (s.gender ?? "OTHER") === genderFilter;
+      return textMatch && gMatch;
+    });
+  }, [students, search, genderFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Gender summary
+  const genderCounts = useMemo(() => {
+    const map: Record<string, number> = { M: 0, F: 0, OTHER: 0 };
+    students.forEach((s) => {
+      const g = s.gender?.toUpperCase() ?? "OTHER";
+      if (g === "M" || g === "F") { map[g]++; } else { map.OTHER++; }
+    });
+    return map;
+  }, [students]);
+
+  function exportCsv() {
+    const rows = [["Roll Number", "Name", "Gender", "Email"]];
+    filtered.forEach((s) => rows.push([s.rollNumber, s.name, s.gender ?? "", s.email ?? ""]));
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${batch?.label ?? batchId}-students.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function genderBadge(g: string | null) {
+    const val = g?.toUpperCase();
+    if (val === "M") return <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">M</span>;
+    if (val === "F") return <span className="rounded bg-pink-100 px-2 py-0.5 text-xs font-semibold text-pink-700">F</span>;
+    return <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">—</span>;
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -134,38 +188,87 @@ export function BatchDetailClient({ batchId }: Props) {
 
         {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div> : null}
 
+        {/* Gender summary bar */}
+        {students.length > 0 && (
+          <div className="flex flex-wrap gap-4 rounded-xl border border-slate-200 bg-white px-5 py-3 text-xs text-slate-600 shadow-sm">
+            <span>👥 Total: <strong>{students.length}</strong></span>
+            <span>♂ Male: <strong>{genderCounts.M}</strong></span>
+            <span>♀ Female: <strong>{genderCounts.F}</strong></span>
+            {genderCounts.OTHER > 0 && <span>Other/Unknown: <strong>{genderCounts.OTHER}</strong></span>}
+          </div>
+        )}
+
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Add Student</h2>
-          <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4" onSubmit={addStudent}>
+          <form className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5" onSubmit={addStudent}>
             <input value={rollNumber} onChange={(e) => setRollNumber(e.target.value)} placeholder="Roll Number" className="rounded-lg border border-slate-300 px-3 py-2 text-sm" required />
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Student Name" className="rounded-lg border border-slate-300 px-3 py-2 text-sm" required />
+            <select value={gender} onChange={(e) => setGender(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <option value="">Gender (opt)</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
             <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)" className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
             <button disabled={loading} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-60">{loading ? "Saving..." : "Add Student"}</button>
           </form>
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          {/* Toolbar */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search roll / name…"
+              className="w-48 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+            />
+            <select
+              value={genderFilter}
+              onChange={(e) => { setGenderFilter(e.target.value as "" | "M" | "F" | "OTHER"); setPage(1); }}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+            >
+              <option value="">All genders</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+              <option value="OTHER">Other/Unknown</option>
+            </select>
+            <span className="ml-auto text-xs text-slate-500">{filtered.length} student{filtered.length !== 1 ? "s" : ""}</span>
+            <button
+              onClick={exportCsv}
+              disabled={filtered.length === 0}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              ⬇ CSV
+            </button>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-slate-100 text-slate-700">
                 <tr>
+                  <th className="px-3 py-2">#</th>
                   <th className="px-3 py-2">Roll Number</th>
                   <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">Gender</th>
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {students.length === 0 ? (
+                {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-3 py-8 text-center text-slate-500">No students in this batch yet.</td>
+                    <td colSpan={6} className="px-3 py-8 text-center text-slate-500">
+                      {students.length === 0 ? "No students in this batch yet." : "No students match the current filter."}
+                    </td>
                   </tr>
                 ) : (
-                  students.map((student) => (
+                  paginated.map((student, idx) => (
                     <tr key={student.id} className="border-t border-slate-200">
-                      <td className="px-3 py-2">{student.rollNumber}</td>
+                      <td className="px-3 py-2 text-slate-400">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{student.rollNumber}</td>
                       <td className="px-3 py-2">{student.name}</td>
-                      <td className="px-3 py-2">{student.email ?? "-"}</td>
+                      <td className="px-3 py-2">{genderBadge(student.gender)}</td>
+                      <td className="px-3 py-2 text-slate-500">{student.email ?? "—"}</td>
                       <td className="px-3 py-2">
                         <button onClick={() => removeStudent(student.id)} className="rounded bg-rose-600 px-2 py-1 text-xs font-semibold text-white hover:bg-rose-700">Delete</button>
                       </td>
@@ -175,6 +278,15 @@ export function BatchDetailClient({ batchId }: Props) {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded border border-slate-300 px-3 py-1 disabled:opacity-40">← Prev</button>
+              <span className="text-slate-600">Page {page} / {totalPages}</span>
+              <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded border border-slate-300 px-3 py-1 disabled:opacity-40">Next →</button>
+            </div>
+          )}
         </section>
       </div>
     </main>

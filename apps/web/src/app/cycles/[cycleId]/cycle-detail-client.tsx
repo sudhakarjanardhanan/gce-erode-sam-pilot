@@ -87,6 +87,9 @@ export function CycleDetailClient({ cycleId }: Props) {
   const [sessionDate, setSessionDate] = useState("");
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>("PLANNED");
 
+  const [teamsCount, setTeamsCount] = useState(0);
+  const [assignmentsCount, setAssignmentsCount] = useState(0);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -212,10 +215,12 @@ export function CycleDetailClient({ cycleId }: Props) {
     setError(null);
 
     try {
-      const [cycleRes, sessionsRes, optionsRes] = await Promise.all([
+      const [cycleRes, sessionsRes, optionsRes, teamsRes, assignmentsRes] = await Promise.all([
         fetch(`/api/cycles/${cycleId}`, { cache: "no-store" }),
         fetch(`/api/cycles/${cycleId}/sessions`, { cache: "no-store" }),
         fetch("/api/cycles/options", { cache: "no-store" }),
+        fetch(`/api/cycles/${cycleId}/teams`, { cache: "no-store" }),
+        fetch(`/api/cycles/${cycleId}/assignments`, { cache: "no-store" }),
       ]);
 
       const cycleData = (await cycleRes.json()) as { error?: string; cycle?: CycleDto };
@@ -226,6 +231,8 @@ export function CycleDetailClient({ cycleId }: Props) {
         courses?: CourseOption[];
         faculty?: FacultyOption[];
       };
+      const teamsData = (await teamsRes.json()) as { teams?: unknown[] };
+      const assignmentsData = (await assignmentsRes.json()) as { assignments?: unknown[] };
 
       if (!cycleRes.ok) {
         throw new Error(cycleData.error ?? "Failed to load cycle");
@@ -243,6 +250,8 @@ export function CycleDetailClient({ cycleId }: Props) {
       setBatches(optionsData.batches ?? []);
       setCourses(optionsData.courses ?? []);
       setFaculty(optionsData.faculty ?? []);
+      setTeamsCount(teamsData.teams?.length ?? 0);
+      setAssignmentsCount(assignmentsData.assignments?.length ?? 0);
 
       if (nextCycle) {
         setName(nextCycle.name);
@@ -369,17 +378,53 @@ export function CycleDetailClient({ cycleId }: Props) {
             <Link href="/cycles" className="text-sm font-medium text-slate-700 hover:underline">Back to Cycles</Link>
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">Cycle Detail</h1>
             <p className="mt-1 text-sm text-slate-600">Edit cycle metadata and maintain session plans.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Link href={`/cycles/${cycleId}/teams`} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                Teams
-              </Link>
-              <Link href={`/cycles/${cycleId}/assignments`} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                Assignments
-              </Link>
-            </div>
           </div>
           <button onClick={loadAll} disabled={loading} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">Refresh</button>
         </header>
+
+        {/* 4-step wizard progress bar */}
+        {(() => {
+          const hasGrades = sessions.some((s) => s.status === "COMPLETED" || s.status === "LOCKED");
+          const steps = [
+            { label: "Teams",       href: `/cycles/${cycleId}/teams`,       done: teamsCount > 0 },
+            { label: "Assignments", href: `/cycles/${cycleId}/assignments`,  done: assignmentsCount > 0 },
+            { label: "Schedule",    href: `#sessions`,                      done: sessions.length > 0 },
+            { label: "Grade",       href: `#sessions`,                      done: hasGrades },
+          ];
+          const firstPending = steps.findIndex((s) => !s.done);
+          return (
+            <div className="flex items-center gap-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm overflow-x-auto">
+              {steps.map((step, i) => {
+                const isDone = step.done;
+                const isActive = !isDone && i === firstPending;
+                const isLocked = !isDone && i > firstPending;
+                return (
+                  <div key={step.label} className="flex items-center">
+                    <Link
+                      href={step.href}
+                      className={[
+                        "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                        isDone  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "",
+                        isActive ? "bg-amber-50 text-amber-700 ring-1 ring-amber-300" : "",
+                        isLocked ? "text-slate-400 cursor-default pointer-events-none" : "",
+                      ].filter(Boolean).join(" ")}
+                    >
+                      <span className={["flex h-4 w-4 items-center justify-center rounded-full text-[0.6rem] font-bold",
+                        isDone ? "bg-emerald-500 text-white" : isActive ? "bg-amber-400 text-white" : "bg-slate-200 text-slate-500"
+                      ].join(" ")}>
+                        {isDone ? "✓" : i + 1}
+                      </span>
+                      {step.label}
+                    </Link>
+                    {i < steps.length - 1 && (
+                      <span className="mx-1 text-slate-300 text-xs">›</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</div> : null}
 

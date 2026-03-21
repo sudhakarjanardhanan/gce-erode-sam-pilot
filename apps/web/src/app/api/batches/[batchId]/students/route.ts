@@ -26,6 +26,7 @@ export async function GET(_request: Request, context: RouteContext) {
       rollNumber: true,
       name: true,
       email: true,
+      gender: true,
       batchId: true,
       createdAt: true,
       updatedAt: true,
